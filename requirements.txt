@@ -1,0 +1,2 @@
+python-twitch-irc
+dotenv
