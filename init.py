@@ -112,10 +112,6 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             c.privmsg(self.channel, "Did not understand command: " + cmd)
 
 def main():
-    # if len(sys.argv) != 5:
-    #     print("Usage: twitchbot <username> <client id> <token> <channel>")
-    #     sys.exit(1)
-
     username  = "gossamer_socks"
     client_id = os.getenv("TWITCH_CLIENT_ID")
     token     = os.getenv("TWITCH_TOKEN")
