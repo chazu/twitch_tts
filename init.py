@@ -12,17 +12,22 @@ def message_tags_to_dict(msg):
     return {x["key"]: x["value"] for x in msg.tags}
 
 
+# GLOBAL STATE IS THE BEST!!!
+
 engine = pyttsx3.init()
 voices = engine.getProperty('voices')
 voice_names = [voice.name for voice in voices]
 fred_index = voice_names.index('Fred')
 engine.setProperty('voice', voices[fred_index].id)
 
+
+
 class TwitchBot(irc.bot.SingleServerIRCBot):
     def __init__(self, username, client_id, token, channel):
         self.client_id = client_id
         self.token = token
         self.channel = '#' + channel
+        self.last_to_speak = None
 
         # Get the channel id, we will need this for v5 API calls
         url = 'https://api.twitch.tv/kraken/users?login=' + channel
@@ -49,10 +54,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
     def on_pubmsg(self, c, e):
         tags = message_tags_to_dict(e)
 
-        print("===DEBUG===")
-        print(e)
         print(tags)
-        print("===DEBUG===")
 
         # If a chat message starts with an exclamation point, try to run it as a command
         if e.arguments[0][:1] == '!':
@@ -61,12 +63,20 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             self.do_command(e, cmd)
         else:
             display_name = e.tags[3]['value']
-            to_read = f"{display_name} says: {e.arguments[0]}"
+
+            to_read = ""
+
+            if self.last_to_speak != display_name:
+                to_read += f"{display_name} says:"
+
+            to_read += f"{e.arguments[0]}"
             print("===")
             print(to_read)
             print("===")
             engine.say(to_read)
             engine.runAndWait()
+
+            self.last_to_speak = display_name
 
     def do_command(self, e, cmd):
         c = self.connection
