@@ -12,6 +12,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         self.channel = '#' + channel
         self.last_to_speak = None
         self.tts_engine = pyttsx3.init()
+        self.command_registry = {}
 
         # Initialize the TTS engine
         fred_index = self.voice_names().index('Fred')
@@ -34,6 +35,9 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
     def voices(self):
         return self.tts_engine.getProperty('voices')
+
+    def register_command(self, trigger, command_instance):
+        self.command_registry[trigger] = command_instance
 
     def voice_names(self):
         return [x.name for x in self.tts_engine.getProperty('voices')]
@@ -74,31 +78,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             self.last_to_speak = display_name
 
     def do_command(self, e, cmd):
-        c = self.connection
-
-        # Poll the API to get current game.
-        if cmd == "game":
-            url = 'https://api.twitch.tv/kraken/channels/' + self.channel_id
-            headers = {'Client-ID': self.client_id, 'Accept': 'application/vnd.twitchtv.v5+json'}
-            r = requests.get(url, headers=headers).json()
-            c.privmsg(self.channel, r['display_name'] + ' is currently playing ' + r['game'])
-        elif cmd == "title":
-            url = 'https://api.twitch.tv/kraken/channels/' + self.channel_id
-            headers = {'Client-ID': self.client_id, 'Accept': 'application/vnd.twitchtv.v5+json'}
-            r = requests.get(url, headers=headers).json()
-            c.privmsg(self.channel, r['display_name'] + ' channel title is currently ' + r['status'])
-        elif cmd == "voices":
-            c.privmsg(self.channel, str(self.voice_names()))
-        elif cmd == "setvoice":
-            voice_name = e.arguments[0].split(' ')[-1]
-            try:
-                index = self.voice_names().index(voice_name)
-                self.tts_engine.setProperty('voice', self.voices()[index].id)
-                self.tts_engine.say(f"Voice is now {voice_name}")
-                self.tts_engine.runAndWait()
-            except ValueError:
-                print(voice_name)
-                c.privmsg(self.channel, "That voice isn't available...")
-
-        else:
-            c.privmsg(self.channel, "Did not understand command: " + cmd)
+        try:
+            command_instance = self.command_registry[cmd]
+            command_instance.execute(self, e)
+        except KeyError as e:
+            self.connection.privmsg(self.channel, f"Invalid Command {cmd}")
