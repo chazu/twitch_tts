@@ -27,7 +27,10 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         server = 'irc.chat.twitch.tv'
         port = 6667
         print('Connecting to ' + server + ' on port ' + str(port) + '...')
-        irc.bot.SingleServerIRCBot.__init__(self, [(server, port, 'oauth:'+token)], username, username)
+        irc.bot.SingleServerIRCBot.__init__(self,
+                                            [(server, port, 'oauth:'+token)],
+                                            username,
+                                            username)
 
     def voices(self):
         return self.tts_engine.getProperty('voices')
@@ -46,7 +49,6 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
     def on_pubmsg(self, c, e):
         tags = message_tags_to_dict(e)
-
         print(tags)
 
         # If a chat message starts with an exclamation point, try to run it as a command
