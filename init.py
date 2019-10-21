@@ -21,7 +21,6 @@ fred_index = voice_names.index('Fred')
 engine.setProperty('voice', voices[fred_index].id)
 
 
-
 class TwitchBot(irc.bot.SingleServerIRCBot):
     def __init__(self, username, client_id, token, channel):
         self.client_id = client_id
@@ -67,7 +66,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             to_read = ""
 
             if self.last_to_speak != display_name:
-                to_read += f"{display_name} says:"
+                to_read += f"{display_name} says "
 
             to_read += f"{e.arguments[0]}"
             print("===")
