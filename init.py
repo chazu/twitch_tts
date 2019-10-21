@@ -3,9 +3,20 @@ import sys
 
 from dotenv import load_dotenv
 import irc.bot
+import pyttsx3
 import requests
 
 load_dotenv()
+
+def message_tags_to_dict(msg):
+    return {x["key"]: x["value"] for x in msg.tags}
+
+
+engine = pyttsx3.init()
+voices = engine.getProperty('voices')
+voice_names = [voice.name for voice in voices]
+fred_index = voice_names.index('Fred')
+engine.setProperty('voice', voices[fred_index].id)
 
 class TwitchBot(irc.bot.SingleServerIRCBot):
     def __init__(self, username, client_id, token, channel):
@@ -36,14 +47,26 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         c.join(self.channel)
 
     def on_pubmsg(self, c, e):
+        tags = message_tags_to_dict(e)
+
+        print("===DEBUG===")
+        print(e)
+        print(tags)
+        print("===DEBUG===")
+
         # If a chat message starts with an exclamation point, try to run it as a command
         if e.arguments[0][:1] == '!':
             cmd = e.arguments[0].split(' ')[0][1:]
             print('Received command: ' + cmd)
             self.do_command(e, cmd)
         else:
-            print(e.arguments[0])
-        return
+            display_name = e.tags[3]['value']
+            to_read = f"{display_name} says: {e.arguments[0]}"
+            print("===")
+            print(to_read)
+            print("===")
+            engine.say(to_read)
+            engine.runAndWait()
 
     def do_command(self, e, cmd):
         c = self.connection
@@ -54,23 +77,28 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             headers = {'Client-ID': self.client_id, 'Accept': 'application/vnd.twitchtv.v5+json'}
             r = requests.get(url, headers=headers).json()
             c.privmsg(self.channel, r['display_name'] + ' is currently playing ' + r['game'])
-
-        # Poll the API the get the current status of the stream
         elif cmd == "title":
             url = 'https://api.twitch.tv/kraken/channels/' + self.channel_id
             headers = {'Client-ID': self.client_id, 'Accept': 'application/vnd.twitchtv.v5+json'}
             r = requests.get(url, headers=headers).json()
             c.privmsg(self.channel, r['display_name'] + ' channel title is currently ' + r['status'])
+        elif cmd == "voices":
+            voice_names = [x.name for x in engine.getProperty('voices')]
+            c.privmsg(self.channel, str(voice_names))
+            # print(engine.getProperty('voices'))
+        elif cmd == "setvoice":
+            voices = engine.getProperty('voices')
+            voice_names = [voice.name for voice in voices]
+            voice_name = e.arguments[0].split(' ')[-1]
+            try:
+                index = voice_names.index(voice_name)
+                engine.setProperty('voice', voices[index].id)
+                engine.say(f"Voice is now {voice_name}")
+                engine.runAndWait()
+            except ValueError:
+                print(voice_name)
+                c.privmsg(self.channel, "That voice isn't available...")
 
-        # Provide basic information to viewers for specific commands
-        elif cmd == "raffle":
-            message = "This is an example bot, replace this text with your raffle text."
-            c.privmsg(self.channel, message)
-        elif cmd == "schedule":
-            message = "This is an example bot, replace this text with your schedule text."
-            c.privmsg(self.channel, message)
-
-        # The command was not recognized
         else:
             c.privmsg(self.channel, "Did not understand command: " + cmd)
 
