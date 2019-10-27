@@ -1,3 +1,7 @@
+# Python Imports
+import random
+
+# Third Party Imports
 import irc.bot
 import pyttsx3
 import requests
@@ -14,9 +18,12 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         self.tts_engine = pyttsx3.init()
         self.command_registry = {}
 
+        self.voice_registry = {}
+
         # Initialize the TTS engine
-        fred_index = self.voice_names().index('Fred')
-        self.tts_engine.setProperty('voice', self.voices()[fred_index].id)
+        default_voice_index = self.voice_names().index('Fred')
+        self.default_voice = self.voices()[default_voice_index]
+        self._set_voice(self.default_voice)
 
         # Get the channel id, we will need this for v5 API calls
         url = 'https://api.twitch.tv/kraken/users?login=' + channel
@@ -32,6 +39,11 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                                             [(server, port, 'oauth:'+token)],
                                             username,
                                             username)
+
+    def get_voice(self, voice_name):
+        """Given a voice name, return that voice"""
+        index_of_voice = self.voice_names().index(voice_name)
+        return self.voices()[index_of_voice]
 
     def voices(self):
         return self.tts_engine.getProperty('voices')
@@ -63,19 +75,46 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         else:
             display_name = e.tags[3]['value']
 
-            to_read = ""
-
             if self.last_to_speak != display_name:
-                to_read += f"{display_name} says "
+                self._set_voice(self.default_voice)
+                name_to_read = f"{display_name} says "
+                self.tts_engine.say(name_to_read)
 
-            to_read += f"{e.arguments[0]}"
+            user_voice = self._voice_for_user(display_name)
+            user_words = e.arguments[0]
+
+            self._set_voice(user_voice)
+
             print("===")
-            print(to_read)
+            print(user_words)
             print("===")
-            self.tts_engine.say(to_read)
+            self.tts_engine.say(user_words)
             self.tts_engine.runAndWait()
 
             self.last_to_speak = display_name
+
+    def _set_voice(self, voice):
+        self.tts_engine.setProperty('voice', voice.id)
+
+    def _voice_for_user(self, user_name):
+        print(self.voice_registry)
+        try:
+            voice_name_for_user = self.voice_registry[user_name]
+            return self.get_voice(voice_name_for_user)
+        except KeyError as e:
+            voice_for_user = self._pick_unused_voice()
+
+            self.voice_registry[user_name] = voice_for_user.name
+            return voice_for_user
+
+    def _pick_unused_voice(self):
+        return random.choice(self._unused_voices())
+
+    def _unused_voices(self):
+        used_voice_names = list(self.voice_registry.values())
+
+        return [voice for voice in self.voices()
+                if voice.name not in used_voice_names]
 
     def do_command(self, e, cmd):
         try:
