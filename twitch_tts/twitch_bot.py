@@ -6,10 +6,22 @@ import irc.bot
 import pyttsx3
 import requests
 
+
+VOICE_QUALITY = {
+    "normal": ["Fred"],
+    "acceptable": ["Nora"],
+    "crappy": ["Zuzana"]
+}
+
+
 def message_tags_to_dict(msg):
+    """Return the message tags as a dictionary"""
     return {x["key"]: x["value"] for x in msg.tags}
 
+
 class TwitchBot(irc.bot.SingleServerIRCBot):
+    """The bot"""
+
     def __init__(self, username, client_id, token, channel):
         self.client_id = client_id
         self.token = token
@@ -54,7 +66,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
     def voice_names(self):
         return [x.name for x in self.tts_engine.getProperty('voices')]
 
-    def on_welcome(self, c, e):
+    def on_welcome(self, c, event):
         print('Joining ' + self.channel)
 
         # You must request specific capabilities before you can use them
@@ -63,17 +75,17 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         c.cap('REQ', ':twitch.tv/commands')
         c.join(self.channel)
 
-    def on_pubmsg(self, c, e):
-        tags = message_tags_to_dict(e)
+    def on_pubmsg(self, c, event):
+        tags = message_tags_to_dict(event)
         print(tags)
 
         # If a chat message starts with an exclamation point, try to run it as a command
-        if e.arguments[0][:1] == '!':
-            cmd = e.arguments[0].split(' ')[0][1:]
+        if event.arguments[0][:1] == '!':
+            cmd = event.arguments[0].split(' ')[0][1:]
             print('Received command: ' + cmd)
-            self.do_command(e, cmd)
+            self.do_command(event, cmd)
         else:
-            display_name = e.tags[3]['value']
+            display_name = event.tags[3]['value']
 
             if self.last_to_speak != display_name:
                 self._set_voice(self.default_voice)
@@ -81,13 +93,12 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 self.tts_engine.say(name_to_read)
 
             user_voice = self._voice_for_user(display_name)
-            user_words = e.arguments[0]
+            user_words = event.arguments[0]
 
             self._set_voice(user_voice)
 
-            print("===")
             print(user_words)
-            print("===")
+
             self.tts_engine.say(user_words)
             self.tts_engine.runAndWait()
 
@@ -101,13 +112,14 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         try:
             voice_name_for_user = self.voice_registry[user_name]
             return self.get_voice(voice_name_for_user)
-        except KeyError as e:
+        except KeyError as event:
             voice_for_user = self._pick_unused_voice()
 
             self.voice_registry[user_name] = voice_for_user.name
             return voice_for_user
 
     def _pick_unused_voice(self):
+        """Pick an unused voice."""
         return random.choice(self._unused_voices())
 
     def _unused_voices(self):
@@ -116,9 +128,10 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         return [voice for voice in self.voices()
                 if voice.name not in used_voice_names]
 
-    def do_command(self, e, cmd):
+    def do_command(self, event, cmd):
+        """Do a command"""
         try:
             command_instance = self.command_registry[cmd]
-            command_instance.execute(self, e)
-        except KeyError as e:
+            command_instance.execute(self, event)
+        except KeyError:
             self.connection.privmsg(self.channel, f"Invalid Command {cmd}")
