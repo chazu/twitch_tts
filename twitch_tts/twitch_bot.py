@@ -6,6 +6,8 @@ import irc.bot
 import pyttsx3
 import requests
 
+# Own imports
+from .voice_rankings import VOICE_RANKINGS
 
 VOICE_QUALITY = {
     "normal": ["Fred"],
@@ -76,6 +78,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         c.join(self.channel)
 
     def on_pubmsg(self, c, event):
+        """Handle a public message"""
+
         tags = message_tags_to_dict(event)
         print(tags)
 
@@ -95,14 +99,15 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             user_voice = self._voice_for_user(display_name)
             user_words = event.arguments[0]
 
-            self._set_voice(user_voice)
-
             print(user_words)
 
-            self.tts_engine.say(user_words)
-            self.tts_engine.runAndWait()
-
+            self._set_voice(user_voice)
+            self._say(user_words)
             self.last_to_speak = display_name
+
+    def _say(self, words):
+        self.tts_engine.say(words)
+        self.tts_engine.runAndWait()
 
     def _set_voice(self, voice):
         self.tts_engine.setProperty('voice', voice.id)
@@ -112,7 +117,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         try:
             voice_name_for_user = self.voice_registry[user_name]
             return self.get_voice(voice_name_for_user)
-        except KeyError as event:
+        except KeyError:
             voice_for_user = self._pick_unused_voice()
 
             self.voice_registry[user_name] = voice_for_user.name
@@ -124,9 +129,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
     def _unused_voices(self):
         used_voice_names = list(self.voice_registry.values())
-
         return [voice for voice in self.voices()
-                if voice.name not in used_voice_names]
+                if voice.name in VOICE_RANKINGS["good"]]
 
     def do_command(self, event, cmd):
         """Do a command"""
